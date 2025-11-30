@@ -4,63 +4,101 @@ A lightweight Spring Boot web application that:
 
 - Crawls a website
 - Extracts key metadata (URL, title, description, content hash)
-- Generates an `llms.txt` file
-- Automatically keeps it up-to-date by re-crawling sites on a schedule
-- This doesn't respect robots.txt
-- State resets on restart
-Once a site has been crawled **once**, it is automatically monitored and re-crawled every N milliseconds (configurable), without needing to be hard-coded in configuration.
+- Generates an up-to-date `llms.txt` file
+- Automatically keeps each site monitored by re-crawling it on a schedule
+
+> **Note:**
+> - This demo intentionally does *not* respect `robots.txt`.
+> - All state is in memory and resets on server restart.
+> - After the first crawl, each site is automatically re-crawled every **N milliseconds** (configurable).
 
 ---
 
-## ✨ Features
+## **1. Features**
 
-### 1. Website Analysis & Content Extraction
+### **1.1 Website Analysis & Metadata Extraction**
 
-- BFS-style crawler starting from a `baseUrl`
-- Same-domain restriction (does not cross to other hosts)
+- BFS crawler starting from a `baseUrl`
+- Same-domain restriction
 - Extracts:
-    - `URL`
-    - `<title>`
-    - `<meta name="description">`
-    - SHA-256 hash of visible page text
-- Limits:
-    - Max depth (default: 3)
-    - Max pages (default: 200)
-    - Request timeout per page
-
-Implementation: `CrawlService` / `CrawlServiceImpl` using JSoup.
+  - URL
+  - `<title>`
+  - `<meta name="description">`
+  - SHA-256 hash of visible text
+- Crawler limits:
+  - Max depth (default: 3)
+  - Max pages (default: 200)
+  - Timeout control
+- Powered by **JSoup** (`CrawlService` / `CrawlServiceImpl`)
 
 ---
 
-### 2. llms.txt File Generation
+### **1.2 llms.txt File Generation**
 
-- Uses the latest crawl snapshot for a given `baseUrl`
-- Formats pages into a simple `llms.txt` format:
+Generates `llms.txt` for each crawled domain using the latest snapshot.
 
-## 🌐 Live Deployment
+Example output:
 
-The application is deployed at:
-
-https://llms-txt-generator-m77y.onrender.com/
-
-Example usage:
-
-- Trigger a crawl:
-
-  https://llms-txt-generator-m77y.onrender.com/api/crawl?baseUrl=https://example.com
-
-- Fetch llms.txt:
-
-  https://llms-txt-generator-m77y.onrender.com/api/llms.txt?baseUrl=https://example.com
-
-```text
-# llms.txt generated for https://example.com
-# Generated at 2025-11-30T12:34:56
+llms.txt generated for https://example.com
+Generated at 2025-11-30T12:34:56
 
 URL: https://example.com/
+
 TITLE: Home
 DESCRIPTION: Welcome to our site.
 
 URL: https://example.com/about
+
 TITLE: About Us
 DESCRIPTION: Learn more about us.
+
+
+---
+
+## **2. Live Deployment (Hosted Application)**
+
+Deployed at:
+
+👉 **https://llms-txt-generator-m77y.onrender.com/**
+
+### **2.1 Trigger a crawl**
+https://llms-txt-generator-m77y.onrender.com/api/crawl?baseUrl=https://example.com
+
+### **2.2 Fetch the generated llms.txt**
+https://llms-txt-generator-m77y.onrender.com/api/llms.txt?baseUrl=https://example.com
+
+
+---
+
+## **3. Tech Stack**
+
+- Java 17
+- Spring Boot
+- Maven
+- JSoup
+- Dockerfile included
+- In-memory datastore (no DB needed)
+
+---
+
+## **4. Running the Project Locally**
+
+### **4.1 Clone**
+```bash
+git clone git@github.com:<your-username>/<repo-name>.git
+cd <repo-name>
+```
+### **4.2 Build**
+./mvnw clean package
+
+### **4.3 Run**
+./mvnw spring-boot:run
+
+App starts at: http://localhost:8080
+
+## **5. Docker Deployment**
+Build 
+docker build -t llms-txt-generator .
+
+Run
+docker run -p 8080:8080 llms-txt-generator
