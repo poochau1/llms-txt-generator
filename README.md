@@ -37,6 +37,22 @@ Implementation: `CrawlService` / `CrawlServiceImpl` using JSoup.
 - Uses the latest crawl snapshot for a given `baseUrl`
 - Formats pages into a simple `llms.txt` format:
 
+## 🌐 Live Deployment
+
+The application is deployed at:
+
+https://llms-txt-generator-m77y.onrender.com/
+
+Example usage:
+
+- Trigger a crawl:
+
+  https://llms-txt-generator-m77y.onrender.com/api/crawl?baseUrl=https://example.com
+
+- Fetch llms.txt:
+
+  https://llms-txt-generator-m77y.onrender.com/api/llms.txt?baseUrl=https://example.com
+
 ```text
 # llms.txt generated for https://example.com
 # Generated at 2025-11-30T12:34:56
