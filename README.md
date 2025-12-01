@@ -105,5 +105,5 @@ docker run -p 8080:8080 llms-txt-generator
 
 video
 
-![7D268BA4-CA6F-474D-818C-973791A9B4E4_1_102_o](https://github.com/user-attachments/assets/17f9d7f9-b885-4eab-80a1-600d64cdf896)
+
 
