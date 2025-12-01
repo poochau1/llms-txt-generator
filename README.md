@@ -104,6 +104,4 @@ Run
 docker run -p 8080:8080 llms-txt-generator
 
 video
-
-
-
+Video mailed to Hayley, wasnt able to upload even with zip
