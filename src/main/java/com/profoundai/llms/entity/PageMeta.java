@@ -23,15 +23,19 @@ public class PageMeta {
     @Column(length = 64)
     private String contentHash;
 
+    @Enumerated(EnumType.STRING)
+    private PageType pageType;
+
     protected PageMeta() {
     }
 
-    public PageMeta(Long snapshotId, String url, String title, String description, String contentHash) {
+    public PageMeta(Long snapshotId, String url, String title, String description, String contentHash, PageType pageType) {
         this.snapshotId = snapshotId;
         this.url = url;
         this.title = title;
         this.description = description;
         this.contentHash = contentHash;
+        this.pageType = pageType;
     }
 
     public Long getId() {
@@ -56,5 +60,9 @@ public class PageMeta {
 
     public String getContentHash() {
         return contentHash;
+    }
+
+    public PageType getPageType() {
+        return pageType;
     }
 }

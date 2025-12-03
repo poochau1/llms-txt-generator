@@ -1,6 +1,7 @@
 package com.profoundai.llms.service;
 
 import com.profoundai.llms.entity.PageMeta;
+import com.profoundai.llms.entity.PageType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +33,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_SinglePageWithTitleAndDescription() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Page Title", "Page Description", "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Page Title", "Page Description", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -50,7 +51,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_PageWithNullTitle() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", null, "Page Description", "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", null, "Page Description", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -66,7 +67,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_PageWithNullDescription() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Page Title", null, "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Page Title", null, "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -82,7 +83,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_PageWithNullTitleAndDescription() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", null, null, "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", null, null, "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -98,9 +99,9 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_MultiplePages() {
         // Arrange
-        PageMeta page1 = new PageMeta(snapshotId, "https://example.com/page1", "Title 1", "Desc 1", "hash1");
-        PageMeta page2 = new PageMeta(snapshotId, "https://example.com/page2", "Title 2", "Desc 2", "hash2");
-        PageMeta page3 = new PageMeta(snapshotId, "https://example.com/page3", null, "Desc 3", "hash3");
+        PageMeta page1 = new PageMeta(snapshotId, "https://example.com/page1", "Title 1", "Desc 1", "hash1", PageType.PAGE);
+        PageMeta page2 = new PageMeta(snapshotId, "https://example.com/page2", "Title 2", "Desc 2", "hash2", PageType.PAGE);
+        PageMeta page3 = new PageMeta(snapshotId, "https://example.com/page3", null, "Desc 3", "hash3", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page1, page2, page3);
 
         // Act
@@ -165,7 +166,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_FormatVerification() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Test Title", "Test Description", "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Test Title", "Test Description", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -190,7 +191,7 @@ class LlmsTxtGeneratorServiceTest {
     void testGenerate_WithSpecialCharacters() {
         // Arrange
         PageMeta page = new PageMeta(snapshotId, "https://example.com/page?param=value&other=test", 
-                "Title with \"quotes\" & special chars", "Description with\nnewline & <tags>", "hash1");
+                "Title with \"quotes\" & special chars", "Description with\nnewline & <tags>", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -206,7 +207,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_WithEmptyStrings() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "", "", "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "", "", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -224,7 +225,7 @@ class LlmsTxtGeneratorServiceTest {
     void testGenerate_BaseUrlInHeader() {
         // Arrange
         String customBaseUrl = "https://custom-site.com";
-        PageMeta page = new PageMeta(snapshotId, "https://custom-site.com/page1", "Title", "Desc", "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://custom-site.com/page1", "Title", "Desc", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act
@@ -240,7 +241,7 @@ class LlmsTxtGeneratorServiceTest {
         // Arrange
         List<PageMeta> pages = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
-            pages.add(new PageMeta(snapshotId, "https://example.com/page" + i, "Title " + i, "Desc " + i, "hash" + i));
+            pages.add(new PageMeta(snapshotId, "https://example.com/page" + i, "Title " + i, "Desc " + i, "hash" + i, PageType.PAGE));
         }
 
         // Act
@@ -260,7 +261,7 @@ class LlmsTxtGeneratorServiceTest {
     @Test
     void testGenerate_ResultContainsTimestamp() {
         // Arrange
-        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Title", "Desc", "hash1");
+        PageMeta page = new PageMeta(snapshotId, "https://example.com/page1", "Title", "Desc", "hash1", PageType.PAGE);
         List<PageMeta> pages = Arrays.asList(page);
 
         // Act

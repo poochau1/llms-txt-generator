@@ -2,6 +2,7 @@ package com.profoundai.llms.service;
 
 import com.profoundai.llms.entity.CrawlSnapshot;
 import com.profoundai.llms.entity.PageMeta;
+import com.profoundai.llms.entity.PageType;
 import com.profoundai.llms.repository.CrawlSnapshotRepository;
 import com.profoundai.llms.repository.PageMetaRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,13 +68,15 @@ class LlmsTxtMonitoringServiceTest {
                 "https://example.com/page1",
                 "Page 1",
                 "Description 1",
-                "hash1"
+                "hash1",
+                PageType.PAGE
         ));
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page2",
                 "Page 2",
                 "Description 2",
-                "hash2"
+                "hash2",
+                PageType.PAGE
         ));
         crawlResult = new CrawlService.CrawlResult(baseUrl, pageInfos);
 
@@ -111,20 +114,22 @@ class LlmsTxtMonitoringServiceTest {
         CrawlSnapshot previousSnapshot = createSnapshotWithId(baseUrl, LocalDateTime.now().minusDays(1), previousSnapshotId);
 
         List<PageMeta> previousPages = Arrays.asList(
-                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1")
+                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1", PageType.PAGE)
         );
 
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page1",
                 "Page 1",
                 "Description 1",
-                "hash1"
+                "hash1",
+                PageType.PAGE
         ));
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page2",
                 "Page 2",
                 "Description 2",
-                "hash2"
+                "hash2",
+                PageType.PAGE
         ));
         crawlResult = new CrawlService.CrawlResult(baseUrl, pageInfos);
 
@@ -157,15 +162,16 @@ class LlmsTxtMonitoringServiceTest {
         CrawlSnapshot previousSnapshot = createSnapshotWithId(baseUrl, LocalDateTime.now().minusDays(1), previousSnapshotId);
 
         List<PageMeta> previousPages = Arrays.asList(
-                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1"),
-                new PageMeta(previousSnapshotId, "https://example.com/page2", "Page 2", "Desc 2", "hash2")
+                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1", PageType.PAGE),
+                new PageMeta(previousSnapshotId, "https://example.com/page2", "Page 2", "Desc 2", "hash2", PageType.PAGE)
         );
 
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page1",
                 "Page 1",
                 "Description 1",
-                "hash1"
+                "hash1",
+                PageType.PAGE
         ));
         crawlResult = new CrawlService.CrawlResult(baseUrl, pageInfos);
 
@@ -198,14 +204,15 @@ class LlmsTxtMonitoringServiceTest {
         CrawlSnapshot previousSnapshot = createSnapshotWithId(baseUrl, LocalDateTime.now().minusDays(1), previousSnapshotId);
 
         List<PageMeta> previousPages = Arrays.asList(
-                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "oldHash1")
+                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "oldHash1", PageType.PAGE)
         );
 
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page1",
                 "Page 1 Updated",
                 "Description 1 Updated",
-                "newHash1"
+                "newHash1",
+                PageType.PAGE
         ));
         crawlResult = new CrawlService.CrawlResult(baseUrl, pageInfos);
 
@@ -238,28 +245,31 @@ class LlmsTxtMonitoringServiceTest {
         CrawlSnapshot previousSnapshot = createSnapshotWithId(baseUrl, LocalDateTime.now().minusDays(1), previousSnapshotId);
 
         List<PageMeta> previousPages = Arrays.asList(
-                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1"),
-                new PageMeta(previousSnapshotId, "https://example.com/page2", "Page 2", "Desc 2", "oldHash2"),
-                new PageMeta(previousSnapshotId, "https://example.com/page3", "Page 3", "Desc 3", "hash3")
+                new PageMeta(previousSnapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1", PageType.PAGE),
+                new PageMeta(previousSnapshotId, "https://example.com/page2", "Page 2", "Desc 2", "oldHash2", PageType.PAGE),
+                new PageMeta(previousSnapshotId, "https://example.com/page3", "Page 3", "Desc 3", "hash3", PageType.PAGE)
         );
 
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page1",
                 "Page 1",
                 "Description 1",
-                "hash1"
+                "hash1",
+                PageType.PAGE
         ));
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page2",
                 "Page 2 Updated",
                 "Description 2 Updated",
-                "newHash2"
+                "newHash2",
+                PageType.PAGE
         ));
         pageInfos.add(new CrawlService.PageInfo(
                 "https://example.com/page4",
                 "Page 4",
                 "Description 4",
-                "hash4"
+                "hash4",
+                PageType.PAGE
         ));
         crawlResult = new CrawlService.CrawlResult(baseUrl, pageInfos);
 
@@ -294,8 +304,8 @@ class LlmsTxtMonitoringServiceTest {
         CrawlSnapshot snapshot = createSnapshotWithId(baseUrl, LocalDateTime.now(), snapshotId);
 
         List<PageMeta> pages = Arrays.asList(
-                new PageMeta(snapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1"),
-                new PageMeta(snapshotId, "https://example.com/page2", "Page 2", "Desc 2", "hash2")
+                new PageMeta(snapshotId, "https://example.com/page1", "Page 1", "Desc 1", "hash1", PageType.PAGE),
+                new PageMeta(snapshotId, "https://example.com/page2", "Page 2", "Desc 2", "hash2", PageType.PAGE)
         );
 
         String expectedTxt = "# llms.txt generated for " + baseUrl + "\nGenerated content";

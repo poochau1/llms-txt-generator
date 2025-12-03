@@ -1,5 +1,6 @@
 package com.profoundai.llms.service;
 
+import com.profoundai.llms.entity.PageType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -164,13 +165,15 @@ class CrawlServiceImplTest {
                 "https://example.com/page",
                 "Test Page",
                 "Test Description",
-                "testhash123"
+                "testhash123",
+                PageType.PAGE
         );
 
         assertEquals("https://example.com/page", pageInfo.getUrl());
         assertEquals("Test Page", pageInfo.getTitle());
         assertEquals("Test Description", pageInfo.getDescription());
         assertEquals("testhash123", pageInfo.getContentHash());
+        assertEquals(PageType.PAGE, pageInfo.getPageType());
     }
 
     @Test
@@ -179,13 +182,15 @@ class CrawlServiceImplTest {
                 "https://example.com/page",
                 null,
                 null,
-                "hash"
+                "hash",
+                PageType.STATIC_ASSET
         );
 
         assertEquals("https://example.com/page", pageInfo.getUrl());
         assertNull(pageInfo.getTitle());
         assertNull(pageInfo.getDescription());
         assertEquals("hash", pageInfo.getContentHash());
+        assertEquals(PageType.STATIC_ASSET, pageInfo.getPageType());
     }
 
     @Test
