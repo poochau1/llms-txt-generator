@@ -15,15 +15,35 @@ public class LlmsController {
         this.monitoringService = monitoringService;
     }
 
-    // Allow GET + POST
-    @RequestMapping(value = "/crawl", method = {RequestMethod.POST, RequestMethod.GET})
+    @GetMapping(value = "/llms.txt", produces = MediaType.TEXT_PLAIN_VALUE)
+    public String getLlmsTxt(@RequestParam String baseUrl,
+                             @RequestParam(defaultValue = "false") boolean refresh) {
+
+        if (refresh) {
+            monitoringService.crawlAndStore(baseUrl);
+            return monitoringService.getLatestLlmsTxt(baseUrl);
+        }
+
+        try {
+            return monitoringService.getLatestLlmsTxt(baseUrl);
+        } catch (IllegalStateException ex) {
+            monitoringService.crawlAndStore(baseUrl);
+            return monitoringService.getLatestLlmsTxt(baseUrl);
+        }
+    }
+
+
+    @PostMapping("/crawl")
     public MonitoringResult crawl(@RequestParam String baseUrl) {
+        // Normal button: only crawl if no snapshot exists yet
         return monitoringService.crawlAndUpdate(baseUrl);
     }
 
-    @GetMapping(value = "/llms.txt", produces = MediaType.TEXT_PLAIN_VALUE)
-    public String getLlmsTxt(@RequestParam String baseUrl) {
-        return monitoringService.getLatestLlmsTxt(baseUrl);
+    @PostMapping("/crawl/reset")
+    public void resetAndCrawl(@RequestParam String baseUrl) {
+        // Reset/force button: wipe old snapshots (if your recrawlFresh does that)
+        // and perform a fresh crawl
+        monitoringService.recrawlFresh(baseUrl);
     }
 }
 

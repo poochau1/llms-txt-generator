@@ -11,6 +11,8 @@ public interface CrawlSnapshotRepository extends JpaRepository<CrawlSnapshot, Lo
 
     Optional<CrawlSnapshot> findFirstByBaseUrlOrderByCreatedAtDesc(String baseUrl);
 
+    List<CrawlSnapshot> findByBaseUrl(String baseUrl);
+
     //For generic if from website we want to crawl and not test
 
     @Query("select distinct cs.baseUrl from CrawlSnapshot cs")

@@ -8,5 +8,7 @@ import java.util.List;
 public interface PageMetaRepository extends JpaRepository<PageMeta, Long> {
 
     List<PageMeta> findBySnapshotId(Long snapshotId);
+
+    void deleteBySnapshotIdIn(List<Long> snapshotIds);
 }
 

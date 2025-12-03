@@ -1,94 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <title>llms.txt Generator</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; }
-        label { font-weight: bold; }
-        input[type="text"] { width: 100%; padding: 8px; margin-top: 4px; }
-        button { margin-top: 12px; padding: 8px 16px; cursor: pointer; }
-        .status { margin-top: 16px; }
-        .error { color: red; }
+      body {
+        font-family: sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+      }
+      label {
+        font-weight: bold;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        margin-top: 4px;
+      }
+      button {
+        margin-top: 12px;
+        padding: 8px 16px;
+        cursor: pointer;
+        margin-right: 8px;
+      }
+      .status {
+        margin-top: 16px;
+      }
+      .error {
+        color: red;
+      }
     </style>
-</head>
-<body>
-<h1>llms.txt Generator</h1>
-<p>Enter your site's base URL and generate an up-to-date <code>llms.txt</code>.</p>
+  </head>
+  <body>
+    <h1>llms.txt Generator</h1>
+    <p>
+      Enter your site's base URL and generate an up-to-date
+      <code>llms.txt</code>.
+    </p>
 
-<div>
-    <label for="baseUrl">Website URL</label>
-    <input id="baseUrl" type="text" placeholder="https://example.com" />
-    <button id="crawlBtn">Crawl &amp; Generate</button>
-</div>
+    <div>
+      <label for="baseUrl">Website URL</label>
+      <input id="baseUrl" type="text" placeholder="https://example.com" />
+      <button id="crawlBtn">Crawl &amp; Generate</button>
+      <button id="resetBtn">Reset/Force Crawl</button>
+    </div>
 
-<div class="status" id="status"></div>
+    <div class="status" id="status"></div>
 
-<div id="summary"></div>
+    <div id="summary"></div>
 
-<div id="llmsLink"></div>
+    <div id="llmsLink"></div>
 
-<script>
-    const baseUrlInput = document.getElementById('baseUrl');
-    const crawlBtn = document.getElementById('crawlBtn');
-    const statusDiv = document.getElementById('status');
-    const summaryDiv = document.getElementById('summary');
-    const llmsLinkDiv = document.getElementById('llmsLink');
+    <script>
+      const baseUrlInput = document.getElementById("baseUrl");
+      const crawlBtn = document.getElementById("crawlBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const statusDiv = document.getElementById("status");
+      const summaryDiv = document.getElementById("summary");
+      const llmsLinkDiv = document.getElementById("llmsLink");
 
-    crawlBtn.addEventListener('click', async () => {
+      crawlBtn.addEventListener("click", async () => {
         const baseUrl = baseUrlInput.value.trim();
         if (!baseUrl) {
-            statusDiv.textContent = 'Please enter a URL.';
-            statusDiv.className = 'status error';
-            return;
+          statusDiv.textContent = "Please enter a URL.";
+          statusDiv.className = "status error";
+          return;
         }
 
-        statusDiv.textContent = 'Crawling website and generating llms.txt...';
-        statusDiv.className = 'status';
-        summaryDiv.textContent = '';
-        llmsLinkDiv.textContent = '';
+        statusDiv.textContent = "Crawling website and generating llms.txt...";
+        statusDiv.className = "status";
+        summaryDiv.textContent = "";
+        llmsLinkDiv.textContent = "";
         crawlBtn.disabled = true;
 
         try {
-            const resp = await fetch('/api/crawl?baseUrl=' + encodeURIComponent(baseUrl), {
-                method: 'POST'
-            });
-
-            if (!resp.ok) {
-                const text = await resp.text();
-                throw new Error(text || ('Request failed with status ' + resp.status));
+          const resp = await fetch(
+            "/api/crawl?baseUrl=" + encodeURIComponent(baseUrl),
+            {
+              method: "POST",
             }
+          );
 
-            const result = await resp.json();
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(
+              text || "Request failed with status " + resp.status
+            );
+          }
 
-            const added = result.addedUrls ? result.addedUrls.length : 0;
-            const removed = result.removedUrls ? result.removedUrls.length : 0;
-            const modified = result.modifiedUrls ? result.modifiedUrls.length : 0;
+          const result = await resp.json();
 
-            summaryDiv.innerHTML = `
+          const added = result.addedUrls ? result.addedUrls.length : 0;
+          const removed = result.removedUrls ? result.removedUrls.length : 0;
+          const modified = result.modifiedUrls ? result.modifiedUrls.length : 0;
+
+          summaryDiv.innerHTML = `
           <h2>Crawl Summary</h2>
           <p><strong>Added pages:</strong> ${added}</p>
           <p><strong>Removed pages:</strong> ${removed}</p>
           <p><strong>Modified pages:</strong> ${modified}</p>
         `;
 
-            const llmsUrl = '/api/llms.txt?baseUrl=' + encodeURIComponent(baseUrl);
-            llmsLinkDiv.innerHTML = `
+          const llmsUrl =
+            "/api/llms.txt?baseUrl=" + encodeURIComponent(baseUrl);
+          llmsLinkDiv.innerHTML = `
           <h2>llms.txt</h2>
           <p><a href="${llmsUrl}" target="_blank" rel="noopener noreferrer">
             Open generated llms.txt
           </a></p>
         `;
 
-            statusDiv.textContent = 'Done.';
-            statusDiv.className = 'status';
+          statusDiv.textContent = "Done.";
+          statusDiv.className = "status";
         } catch (err) {
-            statusDiv.textContent = 'Error: ' + err.message;
-            statusDiv.className = 'status error';
+          statusDiv.textContent = "Error: " + err.message;
+          statusDiv.className = "status error";
         } finally {
-            crawlBtn.disabled = false;
+          crawlBtn.disabled = false;
         }
-    });
-</script>
-</body>
+      });
+
+      resetBtn.addEventListener("click", async () => {
+        const baseUrl = baseUrlInput.value.trim();
+        if (!baseUrl) {
+          statusDiv.textContent = "Please enter a URL.";
+          statusDiv.className = "status error";
+          return;
+        }
+
+        statusDiv.textContent =
+          "Resetting and crawling website (deleting old snapshots)...";
+        statusDiv.className = "status";
+        summaryDiv.textContent = "";
+        llmsLinkDiv.textContent = "";
+        resetBtn.disabled = true;
+        crawlBtn.disabled = true;
+
+        try {
+          const resp = await fetch(
+            "/api/crawl/reset?baseUrl=" + encodeURIComponent(baseUrl),
+            {
+              method: "POST",
+            }
+          );
+
+          if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(
+              text || "Request failed with status " + resp.status
+            );
+          }
+
+          summaryDiv.innerHTML = `
+          <h2>Reset & Crawl Complete</h2>
+          <p>Old snapshots have been deleted and a fresh crawl has been performed.</p>
+        `;
+
+          const llmsUrl =
+            "/api/llms.txt?baseUrl=" + encodeURIComponent(baseUrl);
+          llmsLinkDiv.innerHTML = `
+          <h2>llms.txt</h2>
+          <p><a href="${llmsUrl}" target="_blank" rel="noopener noreferrer">
+            Open generated llms.txt
+          </a></p>
+        `;
+
+          statusDiv.textContent = "Done.";
+          statusDiv.className = "status";
+        } catch (err) {
+          statusDiv.textContent = "Error: " + err.message;
+          statusDiv.className = "status error";
+        } finally {
+          resetBtn.disabled = false;
+          crawlBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
 </html>
