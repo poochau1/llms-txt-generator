@@ -19,7 +19,7 @@ public class CrawlServiceImpl implements CrawlService {
 
     private static final Logger log = LoggerFactory.getLogger(CrawlServiceImpl.class);
 
-    private static final int MAX_PAGES = 10;
+    private static final int MAX_PAGES = 100;
     private static final int MAX_DEPTH = 3;
     private static final int TIMEOUT_MS = 8000;
     private static final int CSR_THRESHOLD_BYTES = 3 * 1024; // 3 KB
