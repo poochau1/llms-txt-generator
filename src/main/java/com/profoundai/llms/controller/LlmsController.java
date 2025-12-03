@@ -18,12 +18,20 @@ public class LlmsController {
     @GetMapping(value = "/llms.txt", produces = MediaType.TEXT_PLAIN_VALUE)
     public String getLlmsTxt(@RequestParam String baseUrl,
                              @RequestParam(defaultValue = "false") boolean refresh) {
-        // If refresh=true, force a fresh crawl before returning llms.txt
+
         if (refresh) {
             monitoringService.crawlAndStore(baseUrl);
+            return monitoringService.getLatestLlmsTxt(baseUrl);
         }
-        return monitoringService.getLatestLlmsTxt(baseUrl);
+
+        try {
+            return monitoringService.getLatestLlmsTxt(baseUrl);
+        } catch (IllegalStateException ex) {
+            monitoringService.crawlAndStore(baseUrl);
+            return monitoringService.getLatestLlmsTxt(baseUrl);
+        }
     }
+
 
     @PostMapping("/crawl")
     public MonitoringResult crawl(@RequestParam String baseUrl) {
