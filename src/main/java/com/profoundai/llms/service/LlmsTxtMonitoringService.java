@@ -46,6 +46,7 @@ public class LlmsTxtMonitoringService {
         log.debug("Retrieved {} previous page hashes for baseUrl={}", oldHashesByUrl.size(), baseUrl);
 
         log.info("Initiating crawl operation for baseUrl={}", baseUrl);
+
         CrawlService.CrawlResult crawlResult = crawlService.crawl(baseUrl);
         log.info("Crawl operation completed for baseUrl={}, found {} pages", baseUrl, crawlResult.getPages().size());
 
@@ -119,5 +120,72 @@ public class LlmsTxtMonitoringService {
         List<PageMeta> pages = pageMetaRepository.findBySnapshotId(snapshot.getId());
         return llmsTxtGeneratorService.generate(pages, baseUrl);
     }
+
+    @Transactional
+    public CrawlSnapshot crawlAndStore(String baseUrl) {
+        log.info("Starting manual fresh crawl for baseUrl={}", baseUrl);
+
+        // Run the crawl
+        CrawlService.CrawlResult result = crawlService.crawl(baseUrl);
+        log.debug("Crawl completed for baseUrl={}, pages={}", baseUrl, result.getPages().size());
+
+        // Create and save new snapshot
+        CrawlSnapshot snapshot = snapshotRepository.save(
+                new CrawlSnapshot(baseUrl, LocalDateTime.now())
+        );
+        log.debug("Saved snapshot id={} for baseUrl={}", snapshot.getId(), baseUrl);
+
+        // Map and save PageMeta
+        List<PageMeta> pages = result.getPages().stream()
+                .map(p -> new PageMeta(
+                        snapshot.getId(),
+                        p.getUrl(),
+                        p.getTitle(),
+                        p.getDescription(),
+                        p.getContentHash(),
+                        p.getPageType()
+                ))
+                .toList();
+
+        pageMetaRepository.saveAll(pages);
+        log.info("Saved {} PageMeta rows for snapshot id={}", pages.size(), snapshot.getId());
+
+        return snapshot;
+    }
+
+    @Transactional
+    public CrawlSnapshot recrawlFresh(String baseUrl) {
+        log.info("Hard recrawl requested for baseUrl={}", baseUrl);
+
+        List<CrawlSnapshot> oldSnapshots = snapshotRepository.findByBaseUrl(baseUrl);
+        if (!oldSnapshots.isEmpty()) {
+            List<Long> snapshotIds = oldSnapshots.stream()
+                    .map(CrawlSnapshot::getId)
+                    .toList();
+
+            log.debug("Deleting {} old snapshots and their pages for baseUrl={}", oldSnapshots.size(), baseUrl);
+            pageMetaRepository.deleteBySnapshotIdIn(snapshotIds);
+            snapshotRepository.deleteAll(oldSnapshots);
+        }
+
+        return crawlAndStore(baseUrl);
+    }
+
+//    @Transactional
+//    public void crawlIfMissing(String baseUrl) {
+//        log.info("AUTO crawl requested for baseUrl={}", baseUrl);
+//
+//        boolean exists = snapshotRepository
+//                .findFirstByBaseUrlOrderByCreatedAtDesc(baseUrl)
+//                .isPresent();
+//
+//        if (exists) {
+//            log.info("Snapshot already exists for baseUrl={}, skipping crawl", baseUrl);
+//            return;
+//        }
+//
+//        log.info("No snapshot found for baseUrl={}, performing initial crawl", baseUrl);
+//        crawlAndStore(baseUrl);
+//    }
 }
 

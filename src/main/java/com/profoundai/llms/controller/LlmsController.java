@@ -1,7 +1,6 @@
 package com.profoundai.llms.controller;
 
 import com.profoundai.llms.service.LlmsTxtMonitoringService;
-import com.profoundai.llms.service.MonitoringResult;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,15 +14,27 @@ public class LlmsController {
         this.monitoringService = monitoringService;
     }
 
-    // Allow GET + POST
-    @RequestMapping(value = "/crawl", method = {RequestMethod.POST, RequestMethod.GET})
-    public MonitoringResult crawl(@RequestParam String baseUrl) {
-        return monitoringService.crawlAndUpdate(baseUrl);
+    @GetMapping(value = "/llms.txt", produces = MediaType.TEXT_PLAIN_VALUE)
+    public String getLlmsTxt(@RequestParam String baseUrl,
+                             @RequestParam(defaultValue = "false") boolean refresh) {
+        // If refresh=true, force a fresh crawl before returning llms.txt
+        if (refresh) {
+            monitoringService.crawlAndStore(baseUrl);
+        }
+        return monitoringService.getLatestLlmsTxt(baseUrl);
     }
 
-    @GetMapping(value = "/llms.txt", produces = MediaType.TEXT_PLAIN_VALUE)
-    public String getLlmsTxt(@RequestParam String baseUrl) {
-        return monitoringService.getLatestLlmsTxt(baseUrl);
+    @PostMapping("/crawl")
+    public void crawl(@RequestParam String baseUrl) {
+        // Normal button: only crawl if no snapshot exists yet
+        monitoringService.crawlAndUpdate(baseUrl);
+    }
+
+    @PostMapping("/crawl/reset")
+    public void resetAndCrawl(@RequestParam String baseUrl) {
+        // Reset/force button: wipe old snapshots (if your recrawlFresh does that)
+        // and perform a fresh crawl
+        monitoringService.recrawlFresh(baseUrl);
     }
 }
 
