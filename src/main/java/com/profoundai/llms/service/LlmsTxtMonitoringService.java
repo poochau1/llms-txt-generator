@@ -103,7 +103,7 @@ public class LlmsTxtMonitoringService {
     }
 
     @Transactional
-    private CrawlSnapshot saveSnapshotWithPages(String baseUrl, CrawlService.CrawlResult result) {
+    protected CrawlSnapshot saveSnapshotWithPages(String baseUrl, CrawlService.CrawlResult result) {
         log.debug("Creating new crawl snapshot for baseUrl={}", baseUrl);
         CrawlSnapshot snapshot = snapshotRepository.save(
                 new CrawlSnapshot(baseUrl, LocalDateTime.now())

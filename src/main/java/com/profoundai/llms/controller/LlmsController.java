@@ -1,6 +1,7 @@
 package com.profoundai.llms.controller;
 
 import com.profoundai.llms.service.LlmsTxtMonitoringService;
+import com.profoundai.llms.service.MonitoringResult;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,9 +26,9 @@ public class LlmsController {
     }
 
     @PostMapping("/crawl")
-    public void crawl(@RequestParam String baseUrl) {
+    public MonitoringResult crawl(@RequestParam String baseUrl) {
         // Normal button: only crawl if no snapshot exists yet
-        monitoringService.crawlAndUpdate(baseUrl);
+        return monitoringService.crawlAndUpdate(baseUrl);
     }
 
     @PostMapping("/crawl/reset")
