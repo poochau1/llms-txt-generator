@@ -9,10 +9,12 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PreDestroy;
 
 import java.net.URI;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 public class CrawlServiceImpl implements CrawlService {
@@ -23,8 +25,10 @@ public class CrawlServiceImpl implements CrawlService {
     private static final int MAX_DEPTH = 3;
     private static final int TIMEOUT_MS = 8000;
     private static final int CSR_THRESHOLD_BYTES = 3 * 1024; // 3 KB
+    private static final int CONCURRENCY = 4;
 
     private final CsrRenderer csrRenderer = new CsrRenderer();
+    private final ExecutorService pool = Executors.newFixedThreadPool(CONCURRENCY);
 
     @Override
     public CrawlResult crawl(String baseUrl) {
@@ -35,176 +39,241 @@ public class CrawlServiceImpl implements CrawlService {
             String baseHost = baseUri.getHost();
             log.debug("Extracted base host: {}", baseHost);
 
-            Set<String> visited = new HashSet<>();
-            List<PageInfo> pages = new ArrayList<>();
+            Set<String> visited = ConcurrentHashMap.newKeySet();
+            List<PageInfo> pages = Collections.synchronizedList(new ArrayList<>());
 
-            Queue<UrlDepth> queue = new ArrayDeque<>();
-            queue.add(new UrlDepth(baseUrl, 0));
-            log.debug("Initialized crawl queue with base URL at depth 0");
+            List<UrlDepth> currentLevel = List.of(new UrlDepth(baseUrl, 0));
+            log.debug("Initialized crawl with base URL at depth 0");
 
             int processedCount = 0;
-            while (!queue.isEmpty() && pages.size() < MAX_PAGES) {
-                UrlDepth current = queue.poll();
-                String url = normalizeUrl(current.url);
-
-                if (url == null) {
-                    log.debug("Skipping null URL at depth {}", current.depth);
-                    continue;
-                }
-                if (visited.contains(url)) {
-                    log.debug("Skipping already visited URL: {}", url);
-                    continue;
-                }
-                if (current.depth > MAX_DEPTH) {
-                    log.debug("Skipping URL at depth {} (max depth: {}): {}", current.depth, MAX_DEPTH, url);
-                    continue;
-                }
-                visited.add(url);
-                processedCount++;
-
-                URI currentUri;
-                try {
-                    currentUri = new URI(url);
-                } catch (Exception e) {
-                    log.debug("Failed to parse URL, skipping: {}", url);
-                    continue;
-                }
-
-                if (currentUri.getHost() == null || !currentUri.getHost().endsWith(baseHost)) {
-                    log.debug("Skipping URL with different host: {} (expected: {})", 
-                            currentUri.getHost(), baseHost);
-                    continue;
-                }
-
-                try {
-                    log.debug("Fetching page: {} (depth: {})", url, current.depth);
-                    String html = Jsoup.connect(url)
-                            .userAgent("llms-txt-crawler")
-                            .timeout(TIMEOUT_MS)
-                            .execute()
-                            .body();
-
-                    // Check if page is likely CSR and render client-side if needed
-                    if (isLikelyCSR(html)) {
-                        log.debug("Page appears to be CSR, attempting client-side render: {}", url);
-                        String renderedHtml = csrRenderer.renderClientSide(url);
-                        if (renderedHtml != null && isRicherContent(renderedHtml, html)) {
-                            log.debug("Client-side rendered DOM is richer, using rendered version for: {}", url);
-                            html = renderedHtml;
-                        } else if (renderedHtml != null) {
-                            log.debug("Client-side rendered DOM not richer, using SSR version for: {}", url);
-                        } else {
-                            log.debug("Client-side rendering failed, using SSR version for: {}", url);
-                        }
-                    }
-
-                    Document doc = Jsoup.parse(html, url);
-
-                    String title = doc.title();
-                    String description = Optional.ofNullable(doc.selectFirst("meta[name=description]"))
-                            .map(el -> el.attr("content"))
-                            .orElse(null);
-
-                    String textContent = doc.body() != null ? doc.body().text() : "";
-                    String hash = sha256(textContent);
-
-                    pages.add(new PageInfo(url, title, description, hash, PageType.PAGE));
-                    log.debug("Successfully processed page: {} (title: {}, hash: {})", url, title, hash);
-
-                    // Stop if we've reached MAX_PAGES
+            for (int depth = 0; depth <= MAX_DEPTH && !currentLevel.isEmpty() && pages.size() < MAX_PAGES; depth++) {
+                final int currentDepth = depth; // Make effectively final for lambda
+                log.debug("Processing depth level {} with {} URLs", currentDepth, currentLevel.size());
+                
+                // Submit all URLs in current level to thread pool
+                List<Future<List<UrlDepth>>> futures = new ArrayList<>();
+                for (UrlDepth urlDepth : currentLevel) {
+                    // Check MAX_PAGES before submitting
                     if (pages.size() >= MAX_PAGES) {
-                        log.debug("Reached MAX_PAGES limit ({}), stopping crawl", MAX_PAGES);
+                        log.debug("Reached MAX_PAGES limit ({}), stopping submission", MAX_PAGES);
                         break;
                     }
-
-                    Elements links = doc.select("a[href]");
-                    int linksAdded = 0;
-                    int staticAssetsSkipped = 0;
-                    for (Element link : links) {
-                        // Stop adding links if we've reached MAX_PAGES
-                        if (pages.size() >= MAX_PAGES) {
-                            break;
-                        }
-                        String href = link.absUrl("href");
-                        String normalized = normalizeUrl(href);
-                        
-                        // Filter: Skip static assets (.js, .css, .map) - they should only be processed as assets, not BFS-crawled
-                        if (normalized != null && isStaticAsset(normalized)) {
-                            log.trace("Skipping static asset from BFS queue: {}", normalized);
-                            staticAssetsSkipped++;
-                            continue;
-                        }
-                        
-                        if (normalized != null && !visited.contains(normalized)) {
-                            queue.add(new UrlDepth(normalized, current.depth + 1));
-                            linksAdded++;
-                        }
+                    
+                    String url = normalizeUrl(urlDepth.url);
+                    
+                    if (url == null) {
+                        log.debug("Skipping null URL at depth {}", currentDepth);
+                        continue;
                     }
-                    log.debug("Found {} links on page {}, added {} new URLs to queue, skipped {} static assets", 
-                            links.size(), url, linksAdded, staticAssetsSkipped);
-
-                    // Process <script src="..."> tags as static assets
-                    // For each external JS script: normalize URL, fetch contents, compute hash, add as STATIC_ASSET
-                    // Note: We do NOT parse or follow any links within script contents - only fetch and hash
-                    if (pages.size() < MAX_PAGES) {
-                        Elements scripts = doc.select("script[src]");
-                        int scriptsProcessed = 0;
-                        for (Element script : scripts) {
-                            // Stop if we've reached MAX_PAGES
-                            if (pages.size() >= MAX_PAGES) {
-                                break;
-                            }
-                            String src = script.absUrl("src");
-                            String normalized = normalizeUrl(src);
-                            if (normalized != null && !visited.contains(normalized)) {
-                                try {
-                                    log.debug("Fetching script asset: {}", normalized);
-                                    // Fetch raw file contents (do not parse or follow links within script)
-                                    String scriptContent = Jsoup.connect(normalized)
-                                            .userAgent("llms-txt-crawler")
-                                            .timeout(TIMEOUT_MS)
-                                            .ignoreContentType(true)
-                                            .execute()
-                                            .body();
-                                    // Compute SHA-256 hash of the script content
-                                    String scriptHash = sha256(scriptContent);
-                                    // Add as STATIC_ASSET - no BFS enqueuing, just track as asset
-                                    pages.add(new PageInfo(normalized, null, null, scriptHash, PageType.STATIC_ASSET));
-                                    visited.add(normalized);
-                                    scriptsProcessed++;
-                                    log.debug("Successfully processed script asset: {} (hash: {})", normalized, scriptHash);
-                                    
-                                    // Stop if we've reached MAX_PAGES after adding this asset
-                                    if (pages.size() >= MAX_PAGES) {
-                                        break;
-                                    }
-                                } catch (Exception e) {
-                                    log.debug("Error processing script asset {}: {}", normalized, e.getMessage());
-                                    // ignore per-script errors
+                    if (visited.contains(url)) {
+                        log.debug("Skipping already visited URL: {}", url);
+                        continue;
+                    }
+                    
+                    URI currentUri;
+                    try {
+                        currentUri = new URI(url);
+                    } catch (Exception e) {
+                        log.debug("Failed to parse URL, skipping: {}", url);
+                        continue;
+                    }
+                    
+                    if (currentUri.getHost() == null || !currentUri.getHost().endsWith(baseHost)) {
+                        log.debug("Skipping URL with different host: {} (expected: {})", 
+                                currentUri.getHost(), baseHost);
+                        continue;
+                    }
+                    
+                    // Mark as visited before submitting to avoid duplicate processing
+                    if (visited.add(url)) {
+                        processedCount++;
+                        final String finalUrl = url; // Make effectively final for lambda
+                        Future<List<UrlDepth>> future = pool.submit(() -> 
+                            processPage(finalUrl, currentDepth, baseHost, visited, pages));
+                        futures.add(future);
+                    }
+                }
+                
+                // Collect results and build next level
+                List<UrlDepth> nextLevel = new ArrayList<>();
+                for (Future<List<UrlDepth>> future : futures) {
+                    // Check MAX_PAGES before processing each result
+                    if (pages.size() >= MAX_PAGES) {
+                        log.debug("Reached MAX_PAGES limit ({}), stopping result collection", MAX_PAGES);
+                        break;
+                    }
+                    
+                    try {
+                        List<UrlDepth> discoveredUrls = future.get();
+                        if (discoveredUrls != null) {
+                            // Add discovered links to next level
+                            for (UrlDepth urlDepth : discoveredUrls) {
+                                // Check MAX_PAGES and MAX_DEPTH before adding
+                                if (pages.size() >= MAX_PAGES) {
+                                    break;
+                                }
+                                if (urlDepth.depth > MAX_DEPTH) {
+                                    continue;
+                                }
+                                String normalized = normalizeUrl(urlDepth.url);
+                                if (normalized != null && !visited.contains(normalized) && !isStaticAsset(normalized)) {
+                                    nextLevel.add(urlDepth);
                                 }
                             }
                         }
-                        log.debug("Found {} script sources on page {}, processed {} script assets", 
-                                scripts.size(), url, scriptsProcessed);
+                    } catch (Exception e) {
+                        log.debug("Error getting result from future: {}", e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.debug("Error processing page {}: {}", url, e.getMessage());
-                    // ignore per-page errors
+                }
+                
+                currentLevel = nextLevel;
+                log.debug("Depth {} completed, found {} URLs for next level", currentDepth, nextLevel.size());
+                
+                // Stop if we've reached MAX_PAGES
+                if (pages.size() >= MAX_PAGES) {
+                    log.debug("Reached MAX_PAGES limit ({}), stopping crawl", MAX_PAGES);
+                    break;
                 }
             }
 
             if (pages.size() >= MAX_PAGES) {
                 log.info("Reached maximum page limit ({}), stopping crawl", MAX_PAGES);
-            } else if (queue.isEmpty()) {
-                log.debug("Crawl queue exhausted, crawl complete");
+            } else if (currentLevel.isEmpty()) {
+                log.debug("Crawl exhausted all levels, crawl complete");
             }
 
             log.info("Crawl completed for baseUrl={}, processed {} pages, found {} valid pages", 
                     baseUrl, processedCount, pages.size());
+            
             return new CrawlResult(baseUrl, pages);
         } catch (Exception e) {
             log.error("Failed to crawl baseUrl={}: {}", baseUrl, e.getMessage(), e);
             throw new RuntimeException("Failed to crawl " + baseUrl, e);
+        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down thread pool for CrawlServiceImpl");
+        pool.shutdown();
+    }
+
+    /**
+     * Processes a single page and returns discovered URLs as UrlDepth objects.
+     * This method is called concurrently from the thread pool.
+     * All MAX_PAGES checks are done locally without synchronized blocks.
+     */
+    private List<UrlDepth> processPage(String url, int depth, String baseHost, 
+                                      Set<String> visited, List<PageInfo> pages) {
+        try {
+            log.debug("Fetching page: {} (depth: {})", url, depth);
+            String html = Jsoup.connect(url)
+                    .userAgent("llms-txt-crawler")
+                    .timeout(TIMEOUT_MS)
+                    .execute()
+                    .body();
+
+            // Check if page is likely CSR and render client-side if needed
+            if (isLikelyCSR(html)) {
+                log.debug("Page appears to be CSR, attempting client-side render: {}", url);
+                String renderedHtml = csrRenderer.renderClientSide(url);
+                if (renderedHtml != null && isRicherContent(renderedHtml, html)) {
+                    log.debug("Client-side rendered DOM is richer, using rendered version for: {}", url);
+                    html = renderedHtml;
+                } else if (renderedHtml != null) {
+                    log.debug("Client-side rendered DOM not richer, using SSR version for: {}", url);
+                } else {
+                    log.debug("Client-side rendering failed, using SSR version for: {}", url);
+                }
+            }
+
+            Document doc = Jsoup.parse(html, url);
+
+            String title = doc.title();
+            String description = Optional.ofNullable(doc.selectFirst("meta[name=description]"))
+                    .map(el -> el.attr("content"))
+                    .orElse(null);
+
+            String textContent = doc.body() != null ? doc.body().text() : "";
+            String hash = sha256(textContent);
+
+            // Add page info - check MAX_PAGES locally without synchronized block
+            // The synchronized list handles thread-safety, we just check size
+            if (pages.size() < MAX_PAGES) {
+                pages.add(new PageInfo(url, title, description, hash, PageType.PAGE));
+                log.debug("Successfully processed page: {} (title: {}, hash: {})", url, title, hash);
+            }
+
+            // Collect discovered links as UrlDepth objects
+            List<UrlDepth> discoveredUrls = new ArrayList<>();
+            Elements links = doc.select("a[href]");
+            int linksAdded = 0;
+            int staticAssetsSkipped = 0;
+            for (Element link : links) {
+                // Check MAX_PAGES locally
+                if (pages.size() >= MAX_PAGES) {
+                    break;
+                }
+                String href = link.absUrl("href");
+                String normalized = normalizeUrl(href);
+                
+                // Filter: Skip static assets (.js, .css, .map) - they should only be processed as assets, not BFS-crawled
+                if (normalized != null && isStaticAsset(normalized)) {
+                    log.trace("Skipping static asset from BFS queue: {}", normalized);
+                    staticAssetsSkipped++;
+                    continue;
+                }
+                
+                if (normalized != null) {
+                    discoveredUrls.add(new UrlDepth(normalized, depth + 1));
+                    linksAdded++;
+                }
+            }
+            log.debug("Found {} links on page {}, discovered {} new URLs, skipped {} static assets", 
+                    links.size(), url, linksAdded, staticAssetsSkipped);
+
+            // Process <script src="..."> tags as static assets
+            // For each external JS script: normalize URL, fetch contents, compute hash, add as STATIC_ASSET
+            // Note: We do NOT parse or follow any links within script contents - only fetch and hash
+            if (pages.size() < MAX_PAGES) {
+                Elements scripts = doc.select("script[src]");
+                int scriptsProcessed = 0;
+                for (Element script : scripts) {
+                    if (pages.size() >= MAX_PAGES) {
+                        break;
+                    }
+                    String src = script.absUrl("src");
+                    String normalized = normalizeUrl(src);
+                    if (normalized != null && visited.add(normalized)) {
+                        try {
+                            log.debug("Fetching script asset: {}", normalized);
+                            // Fetch raw file contents (do not parse or follow links within script)
+                            String scriptContent = Jsoup.connect(normalized)
+                                    .userAgent("llms-txt-crawler")
+                                    .timeout(TIMEOUT_MS)
+                                    .ignoreContentType(true)
+                                    .execute()
+                                    .body();
+                            // Compute SHA-256 hash of the script content
+                            String scriptHash = sha256(scriptContent);
+                            // Add as STATIC_ASSET - no BFS enqueuing, just track as asset
+                            pages.add(new PageInfo(normalized, null, null, scriptHash, PageType.STATIC_ASSET));
+                            scriptsProcessed++;
+                            log.debug("Successfully processed script asset: {} (hash: {})", normalized, scriptHash);
+                        } catch (Exception e) {
+                            log.debug("Error processing script asset {}: {}", normalized, e.getMessage());
+                            // ignore per-script errors
+                        }
+                    }
+                }
+                log.debug("Found {} script sources on page {}, processed {} script assets", 
+                        scripts.size(), url, scriptsProcessed);
+            }
+
+            return discoveredUrls;
+        } catch (Exception e) {
+            log.debug("Error processing page {}: {}", url, e.getMessage());
+            return Collections.emptyList();
         }
     }
 
@@ -331,4 +400,5 @@ public class CrawlServiceImpl implements CrawlService {
             this.depth = depth;
         }
     }
+
 }
