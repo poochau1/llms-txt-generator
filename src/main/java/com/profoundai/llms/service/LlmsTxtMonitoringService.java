@@ -45,18 +45,33 @@ public class LlmsTxtMonitoringService {
         // FIRST EVER CRAWL — no previous snapshot
         // =========================================================
         if (previousOpt.isEmpty()) {
-            log.info("No previous snapshot found. Performing initial crawl.");
+                // Do crawl but DO NOT hide results
+                CrawlService.CrawlResult result = crawlService.crawl(baseUrl);
 
-            // Perform initial crawl + store snapshot & pages
-            crawlAndStore(baseUrl);
+                // Convert to PageMeta and store
+                CrawlSnapshot snapshot = new CrawlSnapshot(baseUrl);
+                snapshotRepository.save(snapshot);
 
-            // IMPORTANT: Return an empty diff so UI gets valid JSON
-            return new MonitoringResult(
-                    Set.of(),  // added
-                    Set.of(),  // removed
-                    Set.of()   // modified
-            );
-        }
+                List<PageMeta> newPages = result.getPages().stream()
+                        .map(p -> new PageMeta(
+                                snapshot.getId(),
+                                p.getUrl(),
+                                p.getTitle(),
+                                p.getDescription(),
+                                p.getContentHash(),
+                                p.getPageType()))
+                        .toList();
+
+                pageMetaRepository.saveAll(newPages);
+
+                // Treat ALL as "added"
+                Set<String> added = result.getPages().stream()
+                        .map(CrawlService.PageInfo::getUrl)
+                        .collect(Collectors.toSet());
+
+                return new MonitoringResult(added, Set.of(), Set.of());
+            }
+
 
         // =========================================================
         // NORMAL DIFF CRAWL

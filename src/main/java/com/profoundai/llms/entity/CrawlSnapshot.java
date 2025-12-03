@@ -21,6 +21,9 @@ public class CrawlSnapshot {
         this.createdAt = createdAt;
     }
 
+    public CrawlSnapshot(String baseUrl) {
+    }
+
     public Long getId() {
         return id;
     }
