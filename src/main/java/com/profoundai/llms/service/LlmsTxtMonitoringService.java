@@ -63,7 +63,8 @@ public class LlmsTxtMonitoringService {
                     p.getUrl(),
                     p.getTitle(),
                     p.getDescription(),
-                    p.getContentHash()
+                    p.getContentHash(),
+                    p.getPageType()
             ));
         }
         log.debug("Created {} PageMeta objects for snapshot id={}", newPages.size(), snapshot.getId());
